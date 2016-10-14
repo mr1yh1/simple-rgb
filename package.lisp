@@ -27,10 +27,15 @@
 (defpackage :simple-rgb
   (:use :common-lisp)
   (:nicknames :rgb)
-  (:export :rgb
+  (:export :r
+           :g
+           :b
+           :h
+           :s
+           :v
+           :rgb
            :rgb=
            :hsv
-           :hsv-type-error
            :mix-rgb
            :mix-rgb!
            :greyscale-rgb

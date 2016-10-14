@@ -27,74 +27,63 @@
 
 (in-package :simple-rgb)
 
-(deftype rgb ()
-  '(vector (unsigned-byte 8) 3))
+(defstruct (rgb (:conc-name nil))
+  (r 0 :type (unsigned-byte 8))
+  (g 0 :type (unsigned-byte 8))
+  (b 0 :type (unsigned-byte 8)))
 
+(declaim (ftype (function ((real 0 255) (real 0 255) (real 0 255)) rgb) rgb))
 (defun rgb (r g b)
-  (make-array '(3) :element-type '(unsigned-byte 8)
-                   :initial-contents (list r g b)))
+  "Accepts numbers between 0 255. Rounds floats."
+  (make-rgb :r (round r) :g (round g) :b (round b)))
 
+(declaim (ftype (function (rgb rgb) boolean) rgb=))
 (defun rgb= (a b)
-  (declare (type rgb a b))
-  (and (= (aref a 0) (aref b 0))
-       (= (aref a 1) (aref b 1))
-       (= (aref a 2) (aref b 2))))
+  (and (= (r a) (r b))
+       (= (g a) (g b))
+       (= (b a) (b b))))
 
+(defstruct (hsv (:conc-name nil))
+  (h 0 :type (float 0.0e0 1.0e0))
+  (s 0 :type (float 0.0e0 1.0e0))
+  (v 0 :type (float 0.0e0 1.0e0)))
 
-(deftype hsv ()
-  '(vector (float 0.0e0 1.0e0) 3))
-
-(define-condition hsv-type-error (type-error)
-  ((bugged-vector :initarg :bugged :accessor bugged-hsv-vector))
-  (:report (lambda (condition stream)
-             (format stream
-                 "all elements of HSV must be floats between 0.0 and 1.0: ~A"
-                 (bugged-hsv-vector condition)))))
-
+(declaim (ftype (function ((real 0 1) (real 0 1) (real 0 1)) hsv) hsv))
 (defun hsv (h s v)
-  ;; The :ELEMENT-TYPE option in MAKE-ARRAY will only raise a condition on
-  ;; type oddities if you try to insert a float that wants too much space
-  ;; (CLHS 15.1.2.1).
-  (unless (and (typep h '(float 0.0e0 1.0e0))
-               (typep s '(float 0.0e0 1.0e0))
-               (typep v '(float 0.0e0 1.0e0)))               
-    (error (make-condition 'hsv-type-error :bugged (vector h s v))))
-  (make-array '(3) :element-type '(float 0.0e0 1.0e0)
-                   :initial-contents (list h s v)))
-
+  (make-hsv :h (float h) :s (float s) :v (float v)))
 
 (defparameter +rgb-black+ (rgb 0 0 0))
 (defparameter +rgb-white+ (rgb 255 255 255))
 
-;;; ALPHA weights the mix, 0.0 favoring the first color, 1.0 the second.
-(defun mix-rgb (a b &key (alpha 0.5))
-  (declare (type (float 0.0 1.0) alpha)
-           (type rgb a b))
-  (let ((c (rgb 0 0 0)))
-    (dotimes (i 3 c)
-      (setf (aref c i)
-            (round (+ (aref a i)
-                      (* alpha
-                         (- (aref b i)
-                            (aref a i)))))))))
+(declaim (ftype (function (rgb rgb &optional (real 0 1)) rgb)
+                mix-rgb
+                mix-rgb!))
 
-;;; This one overwrites the first argument with the mixed color.
-(defun mix-rgb! (a b &key (alpha 0.5))
-  (declare (type (float 0.0 1.0) alpha)
-           (type rgb a b))
-  (dotimes (i 3 a)
-    (setf (aref a i)
-          (round (+ (aref a i)
-                    (* alpha
-                       (- (aref b i)
-                          (aref a i))))))))
+(defun mix-rgb! (a b &optional (alpha 0.5))
+  "Overwrites the first argument with the mixed color."
+  (flet ((mix (x y alpha)
+           (round (+ x (* alpha (- y x))))))
+    (setf (r a) (mix (r a) (r b) alpha)
+          (g a) (mix (g a) (g b) alpha)
+          (b a) (mix (b a) (b b) alpha))
+    a))
+
+(defun mix-rgb (a b &optional (alpha 0.5))
+  "ALPHA weights the mix, 0.0 favoring the first color, 1.0 the second."
+  (let ((c (copy-rgb a)))
+    (mix-rgb! c b alpha)))
+
+(declaim (ftype (function (rgb) rgb)
+                greyscale-rgb
+                lighten-rgb lighten-rgb!
+                darken-rgb darken-rgb!
+                invert-rgb complement-rgb))
 
 ;;; http://en.wikipedia.org/wiki/Grayscale
 (defun greyscale-rgb (a)
-  (declare (type rgb a))
-  (let ((gs (round (+ (* .3 (aref a 0))
-                      (* .59 (aref a 1))
-                      (* .11 (aref a 2))))))
+  (let ((gs (+ (* .3  (r a))
+               (* .59 (g a))
+               (* .11 (b a)))))
     (rgb gs gs gs)))
 
 (defun lighten-rgb (a)
@@ -110,41 +99,39 @@
   (mix-rgb! a +rgb-black+))
 
 (defun invert-rgb (a)
-  (rgb (- 255 (aref a 0))
-       (- 255 (aref a 1))
-       (- 255 (aref a 2))))
+  (rgb (- 255 (r a))
+       (- 255 (g a))
+       (- 255 (b a))))
 
 ;;; http://livedocs.adobe.com/en_US/Illustrator/13.0/help.html?content=WS714a382cdf7d304e7e07d0100196cbc5f-6288.html
 ;;; This does nothing interesting to greys.
 (defun complement-rgb (a)
-  (declare (type rgb a))
-  (let* ((r (aref a 0))
-         (g (aref a 1))
-         (b (aref a 2))
+  (let* ((r (r a))
+         (g (g a))
+         (b (b a))
          (min+max (+ (min r g b) (max r g b))))
     (rgb (- min+max r)
          (- min+max g)
          (- min+max b))))
 
+(declaim (ftype (function (rgb &optional (real 0 1)) rgb) contrast-rgb))
 (defun contrast-rgb (a &optional (cut 0.5))
-  (declare (type rgb a))
   (let ((cutoff (round (* cut 255))))
     (labels ((contrastify (color-component)
                (if (>= cutoff color-component) 0 255)))
-      (rgb (contrastify (aref a 0))
-           (contrastify (aref a 1))
-           (contrastify (aref a 2))))))
+      (rgb (contrastify (r a))
+           (contrastify (g a))
+           (contrastify (b a))))))
 
 (defun xmlify-rgb (a &optional (stream nil))
   (declare (type rgb a))
-  (format stream "#~2,'0X~2,'0X~2,'0X" (aref a 0) (aref a 1) (aref a 2)))
+  (format stream "#~2,'0X~2,'0X~2,'0X" (r a) (g a) (b a)))
 
-
+(declaim (ftype (function (rgb) hsv) rgb->hsv))
 (defun rgb->hsv (a)
-  (declare (type rgb a))
-  (let* ((r (/ (aref a 0) 255.0))
-         (g (/ (aref a 1) 255.0))
-         (b (/ (aref a 2) 255.0))
+  (let* ((r (/ (r a) 255.0))
+         (g (/ (g a) 255.0))
+         (b (/ (b a) 255.0))
          (max (max r g b))
          (min (min r g b))
          (v max))
@@ -163,37 +150,32 @@
           (setf h (mod (/ h 6.0) 1))
           (hsv h s v)))))
 
+(declaim (ftype (function (hsv) rgb) hsv->rgb))
 (defun hsv->rgb (a)
-  (declare (type hsv a))
-  (let ((h (aref a 0))
-        (s (aref a 1))
-        (v (aref a 2)))
-    (labels ((rgb-from-floats (r g b)
-               (apply #'rgb (mapcar #'(lambda (c)
-                                        (coerce (round (* c 255)) 'integer))
-                                    (list r g b)))))
-      (if (= s 0.0)
-          (rgb-from-floats v v v)
-          (multiple-value-bind (i f) (truncate (* h 6.0))
-            (let* ((p (* v (- 1.0 s)))
-                   (q (* v (- 1.0 (* s f))))
-                   (tv (* v (- 1.0 (* s (- 1.0 f))))))
-              (cond ((= (mod i 6) 0) (rgb-from-floats v tv p))
-                    ((= i 1) (rgb-from-floats q v p))
-                    ((= i 2) (rgb-from-floats p v tv))
-                    ((= i 3) (rgb-from-floats p q v))
-                    ((= i 4) (rgb-from-floats tv p v))
-                    ((= i 5) (rgb-from-floats v p q)))))))))
+  (let ((h (h a))
+        (s (s a))
+        (v (v a)))
+    (if (= s 0.0)
+        (rgb v v v)
+        (multiple-value-bind (i f) (truncate (* h 6.0))
+          (let* ((p (* v (- 1.0 s)))
+                 (q (* v (- 1.0 (* s f))))
+                 (tv (* v (- 1.0 (* s (- 1.0 f))))))
+            (ecase i
+              (0 (rgb v tv p))
+              (1 (rgb q  v p))
+              (2 (rgb p  v tv))
+              (3 (rgb p  q v))
+              (4 (rgb tv p v))
+              (5 (rgb v  p q))))))))
 
 ;;; (hsv->rgb (rotate-hsv (rgb->hsv color) 180)) == (complement-rgb color)
+(declaim (ftype (function (hsv real) hsv) rotate-hsv))
 (defun rotate-hsv (a rotation)
-  (declare (type hsv a))
-  (let ((h (aref a 0))
-        (s (aref a 1))
-        (v (aref a 2))
-        (scaled-rotation (/ rotation 360.0)))
-    (hsv (mod (+ h scaled-rotation) 1.0) s v)))
+  (let ((scaled-rotation (/ rotation 360.0)))
+    (hsv (mod (+ (h a) scaled-rotation) 1.0) (s a) (v a))))
 
+(declaim (ftype (function (rgb real) rgb) rotate-rgb))
 (defun rotate-rgb (a rotation)
   (hsv->rgb (rotate-hsv (rgb->hsv a) rotation)))
 
