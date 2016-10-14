@@ -1,13 +1,13 @@
 ;;; $Id$
 ;;;
-;;; For now this is just for testing during development, and isn't
-;;; loadable via ASDF trickery.
+(in-package :cl-user)
 
-(asdf:oos 'asdf:load-op :simple-rgb)
-(asdf:oos 'asdf:load-op :lift)
-(use-package :simple-rgb)
-(use-package :lift)
+(defpackage :simple-rgb-test
+  (:use :cl :simple-rgb :lift)
+  (:export :rgb-tests
+           :run-tests))
 
+(in-package :simple-rgb-test)
 
 (deftestsuite rgb-tests () ())
 
@@ -16,30 +16,42 @@
   (ensure-condition type-error   ; condition TYPE-ERROR required by spec
     (rgb 1.0 33 55)))
 
-(addtest (rgb-tests)
-  types-rgb-reject-range-0
-  (ensure-condition type-error
-    (rgb 400 33 55)))
+;;; no need to test even test doesn't compiles.
+;;; 400 conflicts with its asserted type
+;;; (OR (SINGLE-FLOAT 0.0 255.0) (DOUBLE-FLOAT 0.0d0 255.0d0) (RATIONAL 0 255)).
 
-(addtest (rgb-tests)
-  types-rgb-reject-range-1
-  (ensure-condition type-error
-    (rgb -15 33 55)))
+;; (addtest (rgb-tests)
+;;   types-rgb-reject-range-0
+;;   (ensure-condition type-error
+;;     (rgb 400 33 55)))
 
-(addtest (rgb-tests)
-  types-hsv-reject-non-float
-  (ensure-condition hsv-type-error
-    (hsv 0 0.3 0.6)))
+;;; same as above
+;;; -15 conflicts with its asserted type
+;;; (OR (SINGLE-FLOAT 0.0 255.0) (DOUBLE-FLOAT 0.0d0 255.0d0) (RATIONAL 0 255)).
+;; (addtest (rgb-tests)
+;;   types-rgb-reject-range-1
+;;   (ensure-condition type-error
+;;     (rgb -15 33 55)))
 
-(addtest (rgb-tests)
-  types-hsv-reject-range-0
-  (ensure-condition hsv-type-error
-    (hsv 0.2 0.5 1.33)))
+;;; now accepting all real numbers within range in constructors.
+;; (addtest (rgb-tests)
+;;   types-hsv-reject-non-float
+;;   (ensure-condition hsv-type-error
+;;     (hsv 0 0.3 0.6)))
 
-(addtest (rgb-tests)
-  types-hsv-reject-range-1
-  (ensure-condition hsv-type-error
-    (hsv 0.2 -0.5 0.43)))
+;;; same as above 
+;;; 1.33 conflicts with its asserted type
+;;; (OR (SINGLE-FLOAT 0.0 1.0) (DOUBLE-FLOAT 0.0d0 1.0d0) (RATIONAL 0 1)).
+;; (addtest (rgb-tests)
+;;   types-hsv-reject-range-0
+;;   (ensure-condition hsv-type-error
+;;     (hsv 0.2 0.5 1.33)))
+
+;;; same as above
+;; (addtest (rgb-tests)
+;;   types-hsv-reject-range-1
+;;   (ensure-condition hsv-type-error
+;;     (hsv 0.2 -0.5 0.43)))
 
 (addtest (rgb-tests)
   500-conversions
@@ -97,7 +109,7 @@
 
 (addtest (rgb-tests)
   mix-rgb-0
-  (ensure-same (mix-rgb (rgb 255 150 50) simple-rgb::+rgb-white+ :alpha .7)
+  (ensure-same (mix-rgb (rgb 255 150 50) simple-rgb::+rgb-white+ .7)
                (rgb 255 224 194)
                :test #'rgb=))
 

@@ -38,3 +38,11 @@
 
   :components ((:file "package")
                (:file "rgb" :depends-on ("package"))))
+
+(defsystem :simple-rgb-test
+  :depends-on (:simple-rgb :lift)
+  :components ((:file "test-rgb")))
+
+(defmethod perform ((o test-op) (c (eql (find-system :simple-rgb))))
+  (operate 'load-op :simple-rgb-test)
+  (funcall (intern (symbol-name :run-tests) (find-package :simple-rgb-test))))
