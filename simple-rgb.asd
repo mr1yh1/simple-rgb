@@ -31,7 +31,7 @@
 (defsystem :simple-rgb
   :name "SIMPLE-RGB"
   :author "William S. Annis <wm.annis@gmail.com>"
-  :version "0.01"
+  :version "0.1"
   :maintainer "William S. Annis <wm.annis@gmail.com>"
   :licence "MIT"
   :description "simple manipulation of {X|HT}ML RGB values"
